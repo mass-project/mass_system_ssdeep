@@ -1,6 +1,6 @@
 ssdeep
-git+https://github.com/tbehner/mass_api_client.git
+git+https://github.com/mass-project/mass_api_client.git
 git+https://github.com/mass-project/common_helper_files.git
 git+https://github.com/mass-project/common_analysis_base.git
-/home/timm.behner/Documents/mass/clients/mass_client
+git+https://github.com/mass-project/mass_client.git
 git+https://github.com/mass-project/common_analysis_ssdeep.git
