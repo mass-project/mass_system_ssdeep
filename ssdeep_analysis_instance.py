@@ -1,46 +1,55 @@
 import sys
 import time
 import logging
-import configparser
-from mass_client import AnalysisClient
+import ssdeep
 from common_analysis_ssdeep import CommonAnalysisSsdeep
-from mass_api_client.resources import Sample, SsdeepSampleRelation
-from common_helper_files import update_config_from_env
+from mass_api_client import ConnectionManager
+from mass_api_client.resources import Sample, SampleRelationType
+from mass_api_client.utils import process_analyses, get_or_create_analysis_system_instance
 
 logging.basicConfig()
 log = logging.getLogger('ssdeep_analysis_system')
 log.setLevel(logging.INFO)
 
-class SsdeepAnalysisInstance(AnalysisClient):
-    def __init__(self, config):
-        super().__init__(config)
+
+class SsdeepAnalysisInstance:
+    def __init__(self):
         self.cache = dict()
         self._load_cache()
         self.ssdeep_analysis = CommonAnalysisSsdeep(self.cache)
+        self.relation_type = SampleRelationType.get_or_create('ssdeep', directed=False)
 
     def _load_cache(self):
         log.info('Start loading cache...')
         start_time = time.time()
-        for sample in Sample.items():
-            if sample._class_identifier.startswith('Sample.FileSample'):
-                self.cache[sample.id] = sample.ssdeep_hash
+        for sample in Sample.query(has_file=True):
+            self.cache[sample.id] = sample.unique_features['file']['ssdeep_hash']
         log.info('Finished building cache in {}sec. Size {} bytes.'.format(time.time() - start_time, sys.getsizeof(self.cache)))
 
-    def analyze(self, scheduled_analysis):
+    def __call__(self, scheduled_analysis):
         sample = scheduled_analysis.get_sample()
-        report = self.ssdeep_analysis.analyze_string(sample.ssdeep_hash, sample.id)
 
-        for identifier, value in report['similar samples']:
-            SsdeepSampleRelation.create(sample, Sample.get(identifier), match=value)
+        similar_samples = []
+        for other in Sample.query(has_file=True):
+            if sample.id == other.id:
+                continue
+            match = ssdeep.compare(sample.unique_features['file']['ssdeep_hash'], other.unique_features['file']['ssdeep_hash'])
+            if match > 0:
+                similar_samples.append((other.id, match))
 
-        self.submit_report(
-            scheduled_analysis,
-            json_report_objects={'ssdeep_report': {'number_of_similar_samples': len(report['similar samples'])}},
-            )
+        for identifier, value in similar_samples:
+            self.relation_type.create_relation(sample, Sample.get(identifier), additional_metadata={'match': value})
+
+        scheduled_analysis.create_report(additional_metadata={'number_of_similar_samples': len(similar_samples)})
 
 
 if __name__ == "__main__":
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    update_config_from_env(config)
-    SsdeepAnalysisInstance(config).start()
+    ConnectionManager().register_connection('default',
+                                            'IjVhMDBlMTYzMTViNzdmMzE2YTlkYThiZiI.6WyegDGWlqOBKcWlozKJt-2_gKM',
+                                            'http://localhost:8000/api/')
+
+    analysis_system_instance = get_or_create_analysis_system_instance(identifier='ssdeep',
+                                                                      verbose_name='ssdeep',
+                                                                      tag_filter_exp='sample-type:filesample'
+                                                                      )
+    process_analyses(analysis_system_instance, SsdeepAnalysisInstance(), sleep_time=7)

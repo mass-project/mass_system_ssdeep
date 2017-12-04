@@ -12,6 +12,7 @@ RUN apk add --no-cache build-base && \
 COPY requirements.txt /
 # flag to build ssdeeplib and libfuzzy on pip install ssdeep
 ENV BUILD_LIB=1
+RUN pip3 install hurry.filesize
 RUN pip3 install -r /requirements.txt
 ADD . /
 ENTRYPOINT python3 ssdeep_analysis_instance.py
