@@ -23,13 +23,13 @@ class SsdeepAnalysisInstance:
         log.info('Start loading cache...')
         start_time = time.time()
         for sample in Sample.query(has_file=True):
-            self.cache[sample.id] = sample.unique_features['file']['ssdeep_hash']
+            self.cache[sample.id] = sample.unique_features.file.ssdeep_hash
         log.info('Finished building cache in {}sec. Size {} bytes.'.format(time.time() - start_time, sys.getsizeof(self.cache)))
 
     def __call__(self, scheduled_analysis):
         sample = scheduled_analysis.get_sample()
         log.info('Analysing {}'.format(sample))
-        report = self.ssdeep_analysis.analyze_string(sample.unique_features['file']['ssdeep_hash'], sample.id)
+        report = self.ssdeep_analysis.analyze_string(sample.unique_features.file.ssdeep_hash, sample.id)
 
         for identifier, value in report['similar samples']:
             self.relation_type.create_relation(sample, Sample.get(identifier), additional_metadata={'match': value})
@@ -49,4 +49,4 @@ if __name__ == "__main__":
                                                                       verbose_name='ssdeep',
                                                                       tag_filter_exp='sample-type:filesample'
                                                                       )
-    process_analyses(analysis_system_instance, SsdeepAnalysisInstance(), sleep_time=7)
+    process_analyses(analysis_system_instance, SsdeepAnalysisInstance(), sleep_time=7, delete_instance_on_exit=True)

@@ -1,6 +1,6 @@
 ssdeep
 hurry.filesize
-mass-api-client==0.2
+git+https://github.com/mass-project/mass_api_client@0.2
 git+https://github.com/mass-project/common_helper_files.git
 git+https://github.com/mass-project/common_analysis_base.git
 git+https://github.com/mass-project/common_analysis_ssdeep.git
